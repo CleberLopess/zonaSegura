@@ -823,6 +823,11 @@
   resolved "https://registry.npmjs.org/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@cawfree/react-native-heat-map@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@cawfree/react-native-heat-map/-/react-native-heat-map-0.0.2.tgz#4edfdd2e3df5d7f9cca73fbf9fe82b54857ecb16"
+  integrity sha512-LQBTFECKRazVVfIdtsnzsGeTzafQAefmyGSr4tWsIQ7wM+OnnpD3GrO4XdryKtN3K/BcKQpyUJdt+/xxyXtemA==
+
 "@egjs/hammerjs@^2.0.17":
   version "2.0.17"
   resolved "https://registry.npmjs.org/@egjs/hammerjs/-/hammerjs-2.0.17.tgz"

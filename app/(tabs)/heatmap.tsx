@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import { StyleSheet, View, Text, Platform } from "react-native";
-import MapView, { Circle } from "react-native-maps";
+import { StyleSheet, View, Text } from "react-native";
+import MapView, { Circle, Heatmap } from "react-native-maps";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
@@ -197,18 +197,15 @@ async function configureNotifications() {
 
 export default function HeatmapScreen() {
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
-  const [location, setLocation] = useState<Location.LocationObject | null>(
-    null
-  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lastNotificationTime, setLastNotificationTime] = useState(0);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [progressLoadingCSV, setProgressLoadingCSV] = useState(0);
+
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     const setupPermissions = async () => {
       const notificationSupported = await configureNotifications();
-      setNotificationsEnabled(notificationSupported);
 
       const { status: locationStatus } =
         await Location.requestForegroundPermissionsAsync();
@@ -218,10 +215,13 @@ export default function HeatmapScreen() {
       }
 
       try {
-        const data = await readCSV("assets/data/BaseMunicipioTaxaMes.csv");
+        const data = await readCSV((progress) =>
+          setProgressLoadingCSV(progress)
+        );
+        console.log(data);
+
         if (data && data.length > 0) {
           const heatmap = calculateHeatmap(data);
-          console.log("Dados do heatmap:", heatmap);
           setHeatmapData(heatmap);
         } else {
           setErrorMsg("Não foi possível carregar os dados de criminalidade");
@@ -238,7 +238,6 @@ export default function HeatmapScreen() {
           distanceInterval: 100,
         },
         (newLocation) => {
-          setLocation(newLocation);
           if (notificationSupported) {
             checkDangerZone(newLocation);
           }
@@ -349,7 +348,7 @@ export default function HeatmapScreen() {
                 latitude: region.latitude,
                 longitude: region.longitude,
               }}
-              radius={15000} // Aumentado de 5000 para 15000 metros
+              radius={5000} // Aumentado de 5000 para 15000 metros
               fillColor={getRegionColor(region.alertLevel)}
               strokeColor={getRegionColor(region.alertLevel)}
               strokeWidth={3}
@@ -363,6 +362,16 @@ export default function HeatmapScreen() {
             />
           );
         })}
+
+        {/* <Heatmap
+          data={heatmapData.map((region) => ({
+            latitude: region.latitude,
+            longitude: region.longitude,
+            weight: region.totalCrimes, // ou outro valor que você queira usar como peso
+          }))}
+          radius={20} // ajuste o raio conforme necessário
+          opacity={0.6} // ajuste a opacidade conforme necessário
+        /> */}
       </MapView>
     </View>
   );
