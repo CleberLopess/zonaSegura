@@ -33,17 +33,24 @@ const REGION_COORDINATES: { [key: string]: { lat: number; lng: number } } = {
 
 export const readCSV = async (filePath: string): Promise<CrimeData[]> => {
   try {
-    // Carregando o arquivo CSV como um asset
+    console.log("Iniciando leitura do CSV...");
     const csvAsset = Asset.fromModule(
       require("../assets/data/BaseMunicipioTaxaMes.csv")
     );
+    console.log("Asset carregado:", csvAsset);
+
     await csvAsset.downloadAsync();
+    console.log("Asset baixado, localUri:", csvAsset.localUri);
 
     if (!csvAsset?.localUri) {
       throw new Error("Não foi possível carregar o arquivo CSV");
     }
 
     const csvFile = await FileSystem.readAsStringAsync(csvAsset.localUri);
+    console.log(
+      "Conteúdo do CSV (primeiros 100 chars):",
+      csvFile.substring(0, 100)
+    );
 
     const results = Papa.parse(csvFile, {
       header: true,
@@ -73,6 +80,11 @@ export const readCSV = async (filePath: string): Promise<CrimeData[]> => {
       },
     });
 
+    console.log(
+      "Dados parseados (primeiras 2 linhas):",
+      results.data.slice(0, 2)
+    );
+
     // Adicionar coordenadas com base na região
     const processedData = results.data.map((item: any) => {
       const coords =
@@ -84,6 +96,10 @@ export const readCSV = async (filePath: string): Promise<CrimeData[]> => {
       };
     });
 
+    console.log(
+      "Dados processados (primeiras 2 linhas):",
+      processedData.slice(0, 2)
+    );
     return processedData as CrimeData[];
   } catch (error) {
     console.error("Erro ao ler o arquivo CSV:", error);

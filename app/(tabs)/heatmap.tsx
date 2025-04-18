@@ -8,7 +8,168 @@ import { readCSV } from "@/utils/csvReader";
 import { calculateHeatmap, HeatmapData } from "@/utils/heatmapCalculator";
 import { isPointInRegion } from "@/utils/locationUtils";
 
-// Configurar comportamento das notificações apenas se o dispositivo suportar
+const mapStyle = [
+  {
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#242f3e",
+      },
+    ],
+  },
+  {
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#746855",
+      },
+    ],
+  },
+  {
+    elementType: "labels.text.stroke",
+    stylers: [
+      {
+        color: "#242f3e",
+      },
+    ],
+  },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#d59563",
+      },
+    ],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#d59563",
+      },
+    ],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#263c3f",
+      },
+    ],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#6b9a76",
+      },
+    ],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#38414e",
+      },
+    ],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [
+      {
+        color: "#212a37",
+      },
+    ],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#9ca5b3",
+      },
+    ],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#746855",
+      },
+    ],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [
+      {
+        color: "#1f2835",
+      },
+    ],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#f3d19c",
+      },
+    ],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#2f3948",
+      },
+    ],
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#d59563",
+      },
+    ],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#17263c",
+      },
+    ],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#515c6d",
+      },
+    ],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [
+      {
+        color: "#17263c",
+      },
+    ],
+  },
+];
+
 async function configureNotifications() {
   if (Device.isDevice) {
     const { status: existingStatus } =
@@ -46,11 +207,9 @@ export default function HeatmapScreen() {
 
   useEffect(() => {
     const setupPermissions = async () => {
-      // Configurar notificações
       const notificationSupported = await configureNotifications();
       setNotificationsEnabled(notificationSupported);
 
-      // Permissão para localização
       const { status: locationStatus } =
         await Location.requestForegroundPermissionsAsync();
       if (locationStatus !== "granted") {
@@ -58,11 +217,11 @@ export default function HeatmapScreen() {
         return;
       }
 
-      // Carregar dados do CSV e calcular zonas de risco
       try {
         const data = await readCSV("assets/data/BaseMunicipioTaxaMes.csv");
         if (data && data.length > 0) {
           const heatmap = calculateHeatmap(data);
+          console.log("Dados do heatmap:", heatmap);
           setHeatmapData(heatmap);
         } else {
           setErrorMsg("Não foi possível carregar os dados de criminalidade");
@@ -72,12 +231,11 @@ export default function HeatmapScreen() {
         setErrorMsg("Erro ao carregar dados de criminalidade");
       }
 
-      // Iniciar monitoramento de localização
       const locationSubscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.Balanced,
-          timeInterval: 60000, // 1 minuto
-          distanceInterval: 100, // 100 metros
+          timeInterval: 60000,
+          distanceInterval: 100,
         },
         (newLocation) => {
           setLocation(newLocation);
@@ -96,14 +254,11 @@ export default function HeatmapScreen() {
   }, []);
 
   const checkDangerZone = async (userLocation: Location.LocationObject) => {
-    // Evitar múltiplas notificações em um curto período (5 minutos)
     const now = Date.now();
     if (now - lastNotificationTime < 5 * 60 * 1000) return;
 
-    // Verificar velocidade (ignorar se estiver em movimento rápido)
-    if (userLocation.coords.speed && userLocation.coords.speed > 5.5) return; // 5.5 m/s ≈ 20 km/h
+    if (userLocation.coords.speed && userLocation.coords.speed > 5.5) return;
 
-    // Encontrar região mais próxima e seu nível de risco
     const nearestRegion = heatmapData.find((region) =>
       isPointInRegion(
         {
@@ -114,7 +269,7 @@ export default function HeatmapScreen() {
           latitude: region.latitude,
           longitude: region.longitude,
         },
-        5000 // raio em metros
+        5000
       )
     );
 
@@ -149,11 +304,11 @@ export default function HeatmapScreen() {
   const getRegionColor = (alertLevel: string) => {
     switch (alertLevel) {
       case "high":
-        return "rgba(255,0,0,0.3)";
+        return "rgba(255,0,0,0.6)"; // Vermelho mais forte e mais opaco
       case "medium":
-        return "rgba(255,255,0,0.3)";
+        return "rgba(255,165,0,0.6)"; // Laranja mais forte e mais opaco
       default:
-        return "rgba(0,255,0,0.3)";
+        return "rgba(0,255,0,0.6)"; // Verde mais forte e mais opaco
     }
   };
 
@@ -179,20 +334,35 @@ export default function HeatmapScreen() {
         showsUserLocation
         showsMyLocationButton
         showsCompass
+        customMapStyle={mapStyle}
       >
-        {heatmapData.map((region, index) => (
-          <Circle
-            key={index}
-            center={{
-              latitude: region.latitude,
-              longitude: region.longitude,
-            }}
-            radius={5000}
-            fillColor={getRegionColor(region.alertLevel)}
-            strokeColor={getRegionColor(region.alertLevel)}
-            strokeWidth={2}
-          />
-        ))}
+        {heatmapData.map((region, index) => {
+          console.log(`Renderizando círculo ${index}:`, {
+            latitude: region.latitude,
+            longitude: region.longitude,
+            alertLevel: region.alertLevel,
+          });
+          return (
+            <Circle
+              key={index}
+              center={{
+                latitude: region.latitude,
+                longitude: region.longitude,
+              }}
+              radius={15000} // Aumentado de 5000 para 15000 metros
+              fillColor={getRegionColor(region.alertLevel)}
+              strokeColor={getRegionColor(region.alertLevel)}
+              strokeWidth={3}
+              zIndex={
+                region.alertLevel === "high"
+                  ? 3
+                  : region.alertLevel === "medium"
+                  ? 2
+                  : 1
+              }
+            />
+          );
+        })}
       </MapView>
     </View>
   );
