@@ -8,7 +8,7 @@ export interface CrimeData {
   unidadeTerritorial: string;
   municipio: string;
   regiaoDeGoverno: string;
-  Percentual: string;
+  percentual: string;
   latitude?: number;
   longitude?: number;
   heatmapIntensity?: number;
@@ -42,7 +42,7 @@ const normalizePercentuals = (data: any[]): any[] => {
     return {
       ...item,
       percentualOriginal: item.percentual,
-      Percentual: `${(normalizedValue * 100).toFixed(2)}%`,
+      percentual: `${(normalizedValue * 100).toFixed(2)}%`,
       heatmapIntensity: normalizedValue
     };
   });
@@ -64,10 +64,10 @@ export const readData = async (
       RISP: item.RISP,
       AISP: item.AISP,
       CISP: item.CISP,
-      "unidadeTerritorial": item.unidadeTerritorial,
-      "municipio": item.municipio,
-      "regiaoDeGoverno": item.regiaoDeGoverno,
-      Percentual: item.percentual || "0%",
+      unidadeTerritorial: item.unidadeTerritorial,
+      municipio: item.municipio,
+      regiaoDeGoverno: item.regiaoDeGoverno,
+      percentual: item.percentual || "0%",
       latitude: parseFloat(item.latitude),
       longitude: parseFloat(item.longitude)
     }));
