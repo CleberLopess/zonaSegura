@@ -1,126 +1,92 @@
 import * as FileSystem from "expo-file-system";
-import * as Papa from "papaparse";
 import { Asset } from "expo-asset";
 
 export interface CrimeData {
-  fmun_cod: string;
-  fmun: string;
-  ano: string;
-  mes: string;
-  mes_ano: string;
-  regiao: string;
-  hom_doloso: number;
-  lesao_corp_morte: number;
-  latrocinio: number;
-  cvli: number;
-  hom_por_interv_policial: number;
-  letalidade_violenta: number;
-  roubo_rua: number;
-  roubo_veiculo: number;
-  total_roubos: number;
-  total_furtos: number;
+  RISP: number;
+  AISP: number;
+  CISP: number;
+  unidadeTerritorial: string;
+  municipio: string;
+  regiaoDeGoverno: string;
+  Percentual: string;
   latitude?: number;
   longitude?: number;
+  heatmapIntensity?: number;
+  percentualOriginal?: string;
 }
 
-const REGION_COORDINATES: { [key: string]: { lat: number; lng: number } } = {
-  Capital: { lat: -22.9068, lng: -43.1729 },
-  "Baixada Fluminense": { lat: -22.7631, lng: -43.4379 },
-  "Grande Niterói": { lat: -22.8832, lng: -43.1036 },
-  Interior: { lat: -22.5203, lng: -43.1794 },
+const RESULT_PATH = "resultadoFinal.json";
+
+// Função para converter percentual em número
+const parsePercentual = (percentual: string | undefined): number => {
+  if (!percentual) return 0;
+  // Remove o % e substitui vírgula por ponto
+  const cleanValue = percentual.replace("%", "").replace(",", ".");
+  return parseFloat(cleanValue);
 };
 
-const JSON_PATH = FileSystem.documentDirectory + "BaseMunicipioTaxaMes.json";
+// Função para normalizar os percentuais
+const normalizePercentuals = (data: any[]): any[] => {
+  // Encontra o maior percentual
+  const maxPercentual = Math.max(...data.map(item => parsePercentual(item.percentual) || 0));
+  
+  console.log(`Maior percentual encontrado: ${maxPercentual}%`);
 
-export const readCSV = async (
+  // Normaliza todos os percentuais baseado no maior valor
+  return data.map(item => {
+    const originalValue = parsePercentual(item.percentual);
+    const normalizedValue = originalValue / maxPercentual;
+    
+    console.log(`Normalizando ${item.unidadeTerritorial}: ${originalValue}% -> ${(normalizedValue * 100).toFixed(2)}%`);
+    
+    return {
+      ...item,
+      percentualOriginal: item.percentual,
+      Percentual: `${(normalizedValue * 100).toFixed(2)}%`,
+      heatmapIntensity: normalizedValue
+    };
+  });
+};
+
+export const readData = async (
   onProgress?: (progress: number) => void
 ): Promise<CrimeData[]> => {
   try {
-    const fileInfo = await FileSystem.getInfoAsync(JSON_PATH);
+    console.log("Iniciando processamento dos dados...");
 
-    if (fileInfo.exists) {
-      const jsonData = await FileSystem.readAsStringAsync(JSON_PATH);
-      const parsed = JSON.parse(jsonData);
-      return addCoordinates(parsed);
+    // Carrega o JSON de dados
+    console.log("Carregando dados do JSON...");
+    const jsonData = require("../assets/data/dados_RJ.json");
+
+    // Processa os dados
+    console.log("Processando dados...");
+    const processedData = jsonData.map((item: any) => ({
+      RISP: item.RISP,
+      AISP: item.AISP,
+      CISP: item.CISP,
+      "unidadeTerritorial": item.unidadeTerritorial,
+      "municipio": item.municipio,
+      "regiaoDeGoverno": item.regiaoDeGoverno,
+      Percentual: item.percentual || "0%",
+      latitude: parseFloat(item.latitude),
+      longitude: parseFloat(item.longitude)
+    }));
+
+    // Normaliza os percentuais
+    console.log("Normalizando percentuais...");
+    const normalizedData = normalizePercentuals(processedData);
+
+    // Salva o resultado processado
+    if (FileSystem.documentDirectory) {
+      const filePath = FileSystem.documentDirectory + RESULT_PATH;
+      console.log("Salvando resultado final em:", filePath);
+      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(normalizedData));
+      console.log("Arquivo salvo com sucesso!");
     }
 
-    const csvAsset = Asset.fromModule(
-      require("../assets/data/BaseMunicipioTaxaMes.csv")
-    );
-    await csvAsset.downloadAsync();
-
-    if (!csvAsset.localUri) {
-      throw new Error("Não foi possível carregar o arquivo CSV");
-    }
-
-    const csvContent = await FileSystem.readAsStringAsync(csvAsset.localUri);
-
-    const totalLines = csvContent.split("\n").length;
-    const data: any[] = [];
-    let processedLines = 0;
-
-    await new Promise<void>((resolve, reject) => {
-      Papa.parse<Record<string, any>>(csvContent, {
-        header: true,
-        delimiter: ";",
-        skipEmptyLines: true,
-        step: (results: Papa.ParseStepResult<Record<string, any>>) => {
-          const row: Record<string, any> = results.data as Record<string, any>;
-
-          const numericFields: string[] = [
-            "cvli",
-            "roubo_rua",
-            "roubo_veiculo",
-            "total_roubos",
-            "total_furtos",
-            "hom_doloso",
-            "lesao_corp_morte",
-            "latrocinio",
-            "hom_por_interv_policial",
-            "letalidade_violenta",
-          ];
-
-          for (const key of numericFields) {
-            if (row[key]) {
-              const cleanValue: string = row[key]
-                .replace(/['"]/g, "")
-                .replace(",", ".");
-              row[key] = parseFloat(cleanValue) || 0;
-            }
-          }
-
-          data.push(row);
-          processedLines++;
-
-          if (onProgress) {
-            const progress: number = processedLines / totalLines;
-            console.log(progress);
-
-            onProgress(progress);
-          }
-        },
-        complete: () => resolve(),
-        error: (err: Error) => reject(err),
-      });
-    });
-
-    await FileSystem.writeAsStringAsync(JSON_PATH, JSON.stringify(data));
-
-    return addCoordinates(data);
+    return normalizedData;
   } catch (error) {
-    console.error("Erro ao processar o CSV:", error);
-    return [];
+    console.error("Erro detalhado ao processar os dados:", error);
+    throw error;
   }
-};
-
-const addCoordinates = (data: any[]): CrimeData[] => {
-  return data.map((item) => {
-    const coords =
-      REGION_COORDINATES[item.regiao] || REGION_COORDINATES["Interior"];
-    return {
-      ...item,
-      latitude: coords.lat,
-      longitude: coords.lng,
-    };
-  });
 };

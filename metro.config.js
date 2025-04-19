@@ -1,7 +1,10 @@
 const { getDefaultConfig } = require("expo/metro-config");
 
-const config = getDefaultConfig(__dirname);
+module.exports = (() => {
+  const config = getDefaultConfig(__dirname);
 
-config.resolver.assetExts.push("csv");
+  const { assetExts } = config.resolver;
+  config.resolver.assetExts = [...assetExts, 'csv'];
 
-module.exports = config;
+  return config;
+})();

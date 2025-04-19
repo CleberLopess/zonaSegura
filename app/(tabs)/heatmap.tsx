@@ -1,378 +1,134 @@
-import { useEffect, useState, useRef } from "react";
-import { StyleSheet, View, Text } from "react-native";
-import MapView, { Circle, Heatmap } from "react-native-maps";
-import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import { readCSV } from "@/utils/csvReader";
-import { calculateHeatmap, HeatmapData } from "@/utils/heatmapCalculator";
-import { isPointInRegion } from "@/utils/locationUtils";
-
-const mapStyle = [
-  {
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#242f3e",
-      },
-    ],
-  },
-  {
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#746855",
-      },
-    ],
-  },
-  {
-    elementType: "labels.text.stroke",
-    stylers: [
-      {
-        color: "#242f3e",
-      },
-    ],
-  },
-  {
-    featureType: "administrative.locality",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#d59563",
-      },
-    ],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#d59563",
-      },
-    ],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#263c3f",
-      },
-    ],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#6b9a76",
-      },
-    ],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#38414e",
-      },
-    ],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [
-      {
-        color: "#212a37",
-      },
-    ],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#9ca5b3",
-      },
-    ],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#746855",
-      },
-    ],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry.stroke",
-    stylers: [
-      {
-        color: "#1f2835",
-      },
-    ],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#f3d19c",
-      },
-    ],
-  },
-  {
-    featureType: "transit",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#2f3948",
-      },
-    ],
-  },
-  {
-    featureType: "transit.station",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#d59563",
-      },
-    ],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#17263c",
-      },
-    ],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#515c6d",
-      },
-    ],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.stroke",
-    stylers: [
-      {
-        color: "#17263c",
-      },
-    ],
-  },
-];
-
-async function configureNotifications() {
-  if (Device.isDevice) {
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== "granted") {
-        return false;
-      }
-    }
-
-    await Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldVibrate: true,
-      }),
-    });
-
-    return true;
-  }
-  return false;
-}
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, Switch, ScrollView } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { readData } from '@/utils/csvReader';
+import { Heatmap } from '@/components/Heatmap';
+import { useLocationTracking } from '@/hooks/useLocationTracking';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { setupNotifications } from '@/utils/notifications';
 
 export default function HeatmapScreen() {
-  const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [lastNotificationTime, setLastNotificationTime] = useState(0);
-  const [progressLoadingCSV, setProgressLoadingCSV] = useState(0);
+  const [crimeData, setCrimeData] = useState<any[]>([]);
+  const [radius, setRadius] = useState(2000);
+  const [maxOpacity, setMaxOpacity] = useState(0.7);
+  const [transitionPoint, setTransitionPoint] = useState(0.3);
+  const [loading, setLoading] = useState(true);
 
-  const mapRef = useRef<MapView>(null);
+  const { settings, updateSettings, isLoading: settingsLoading } = useUserSettings();
+  const userLocation = useLocationTracking(settings.updateInterval);
 
   useEffect(() => {
-    const setupPermissions = async () => {
-      const notificationSupported = await configureNotifications();
-
-      const { status: locationStatus } =
-        await Location.requestForegroundPermissionsAsync();
-      if (locationStatus !== "granted") {
-        setErrorMsg("Permissão de localização negada");
-        return;
-      }
-
+    const initialize = async () => {
       try {
-        const data = await readCSV((progress) =>
-          setProgressLoadingCSV(progress)
-        );
-        console.log(data);
-
-        if (data && data.length > 0) {
-          const heatmap = calculateHeatmap(data);
-          setHeatmapData(heatmap);
-        } else {
-          setErrorMsg("Não foi possível carregar os dados de criminalidade");
-        }
+        setLoading(true);
+        // Configura notificações
+        await setupNotifications();
+        
+        // Carrega dados
+        const data = await readData((progress) => {
+          console.log(`Progresso: ${(progress * 100).toFixed(2)}%`);
+        });
+        setCrimeData(data);
       } catch (error) {
-        console.error("Erro ao carregar dados:", error);
-        setErrorMsg("Erro ao carregar dados de criminalidade");
+        console.error('Erro ao inicializar:', error);
+      } finally {
+        setLoading(false);
       }
-
-      const locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Balanced,
-          timeInterval: 60000,
-          distanceInterval: 100,
-        },
-        (newLocation) => {
-          if (notificationSupported) {
-            checkDangerZone(newLocation);
-          }
-        }
-      );
-
-      return () => {
-        locationSubscription.remove();
-      };
     };
 
-    setupPermissions();
+    initialize();
   }, []);
 
-  const checkDangerZone = async (userLocation: Location.LocationObject) => {
-    const now = Date.now();
-    if (now - lastNotificationTime < 5 * 60 * 1000) return;
-
-    if (userLocation.coords.speed && userLocation.coords.speed > 5.5) return;
-
-    const nearestRegion = heatmapData.find((region) =>
-      isPointInRegion(
-        {
-          latitude: userLocation.coords.latitude,
-          longitude: userLocation.coords.longitude,
-        },
-        {
-          latitude: region.latitude,
-          longitude: region.longitude,
-        },
-        5000
-      )
-    );
-
-    if (nearestRegion) {
-      let title, body;
-
-      if (nearestRegion.alertLevel === "high") {
-        title = "⚠️ ALERTA DE RISCO ALTO!";
-        body = `Você está em ${nearestRegion.regiao}, uma área com alto índice de criminalidade.\nFique atento ao seu redor!`;
-      } else if (nearestRegion.alertLevel === "medium") {
-        title = "⚠️ Alerta de Risco Moderado";
-        body = `Você está em ${nearestRegion.regiao}, uma área com índice médio de criminalidade.\nMantenha-se atento.`;
-      }
-
-      if (title && body) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title,
-            body,
-            sound: true,
-            priority: "high",
-            vibrate: [0, 250, 250, 250],
-          },
-          trigger: null,
-        });
-
-        setLastNotificationTime(now);
-      }
-    }
-  };
-
-  const getRegionColor = (alertLevel: string) => {
-    switch (alertLevel) {
-      case "high":
-        return "rgba(255,0,0,0.6)"; // Vermelho mais forte e mais opaco
-      case "medium":
-        return "rgba(255,165,0,0.6)"; // Laranja mais forte e mais opaco
-      default:
-        return "rgba(0,255,0,0.6)"; // Verde mais forte e mais opaco
-    }
-  };
-
-  if (errorMsg) {
+  if (loading || settingsLoading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>{errorMsg}</Text>
+        <Text>Carregando dados...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={{
-          latitude: -22.9068,
-          longitude: -43.1729,
-          latitudeDelta: 0.9,
-          longitudeDelta: 0.9,
-        }}
-        showsUserLocation
-        showsMyLocationButton
-        showsCompass
-        customMapStyle={mapStyle}
-      >
-        {heatmapData.map((region, index) => {
-          console.log(`Renderizando círculo ${index}:`, {
-            latitude: region.latitude,
-            longitude: region.longitude,
-            alertLevel: region.alertLevel,
-          });
-          return (
-            <Circle
-              key={index}
-              center={{
-                latitude: region.latitude,
-                longitude: region.longitude,
-              }}
-              radius={5000} // Aumentado de 5000 para 15000 metros
-              fillColor={getRegionColor(region.alertLevel)}
-              strokeColor={getRegionColor(region.alertLevel)}
-              strokeWidth={3}
-              zIndex={
-                region.alertLevel === "high"
-                  ? 3
-                  : region.alertLevel === "medium"
-                  ? 2
-                  : 1
-              }
-            />
-          );
-        })}
+      <Heatmap
+        data={crimeData}
+        radius={radius}
+        maxOpacity={maxOpacity}
+        transitionPoint={transitionPoint}
+        userLocation={userLocation}
+        settings={settings}
+      />
+      
+      <ScrollView style={styles.controls}>
+        <View style={styles.controlGroup}>
+          <Text>Raio de Monitoramento: {radius / 1000}km</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={500}
+            maximumValue={5000}
+            step={500}
+            value={radius}
+            onValueChange={setRadius}
+          />
+        </View>
 
-        {/* <Heatmap
-          data={heatmapData.map((region) => ({
-            latitude: region.latitude,
-            longitude: region.longitude,
-            weight: region.totalCrimes, // ou outro valor que você queira usar como peso
-          }))}
-          radius={20} // ajuste o raio conforme necessário
-          opacity={0.6} // ajuste a opacidade conforme necessário
-        /> */}
-      </MapView>
+        <View style={styles.controlGroup}>
+          <Text>Opacidade Máxima: {(maxOpacity * 100).toFixed(0)}%</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0.1}
+            maximumValue={1}
+            step={0.1}
+            value={maxOpacity}
+            onValueChange={setMaxOpacity}
+          />
+        </View>
+
+        <View style={styles.controlGroup}>
+          <Text>Ponto de Transição: {(transitionPoint * 100).toFixed(0)}%</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0.1}
+            maximumValue={0.9}
+            step={0.1}
+            value={transitionPoint}
+            onValueChange={setTransitionPoint}
+          />
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.controlGroup}>
+          <Text>Intervalo de Atualização: {settings.updateInterval / 1000}s</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={10000}
+            maximumValue={300000}
+            step={10000}
+            value={settings.updateInterval}
+            onValueChange={(value) => updateSettings({ updateInterval: value })}
+          />
+        </View>
+
+        <View style={styles.controlGroup}>
+          <Text>Limite para Notificação: {settings.notificationThreshold}%</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={50}
+            maximumValue={100}
+            step={5}
+            value={settings.notificationThreshold}
+            onValueChange={(value) => updateSettings({ notificationThreshold: value })}
+          />
+        </View>
+
+        <View style={[styles.controlGroup, styles.row]}>
+          <Text>Vibração em Alertas Críticos</Text>
+          <Switch
+            value={settings.vibrationEnabled}
+            onValueChange={(value) => updateSettings({ vibrationEnabled: value })}
+          />
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -381,13 +137,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  map: {
-    flex: 1,
+  controls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  errorText: {
-    fontSize: 16,
-    color: "red",
-    textAlign: "center",
-    margin: 20,
+  controlGroup: {
+    marginBottom: 16,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ccc',
+    marginVertical: 16,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

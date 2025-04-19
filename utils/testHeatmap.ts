@@ -1,8 +1,8 @@
-import { readCSV } from "./csvReader";
+import { readData } from "./csvReader";
 import { calculateHeatmap } from "./heatmapCalculator";
 
 const testHeatmapLogic = async () => {
-  const data = await readCSV("assets/data/BaseMunicipioTaxaMes.csv");
+  const data = await readData();
 
   if (!data) {
     console.error("Falha ao carregar dados do CSV");

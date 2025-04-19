@@ -5,11 +5,21 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { PaperProvider, MD3LightTheme as PaperDefaultTheme } from 'react-native-paper';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+const paperTheme = {
+  ...PaperDefaultTheme,
+  colors: {
+    ...PaperDefaultTheme.colors,
+    primary: '#2196F3',
+    secondary: '#03DAC6',
+  },
+};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -29,11 +39,33 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
+      <PaperProvider theme={paperTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+          <Stack.Screen 
+            name="index" 
+            options={{ 
+              title: 'Zona Segura',
+              headerStyle: {
+                backgroundColor: paperTheme.colors.primary,
+              },
+              headerTintColor: '#fff',
+            }} 
+          />
+          <Stack.Screen 
+            name="config" 
+            options={{ 
+              title: 'Configurações',
+              headerStyle: {
+                backgroundColor: paperTheme.colors.primary,
+              },
+              headerTintColor: '#fff',
+            }} 
+          />
+        </Stack>
+        <StatusBar style="auto" />
+      </PaperProvider>
     </ThemeProvider>
   );
 }
