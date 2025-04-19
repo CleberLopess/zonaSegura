@@ -403,7 +403,7 @@ export default function App() {
             }}
             title="Sua Localização"
             description="Você está aqui"
-            pinColor="blue"
+            
           />
         )}
       </MapView>
