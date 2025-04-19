@@ -1,11 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Vibration } from 'react-native';
 import MapView, { Circle, Callout, Marker } from 'react-native-maps';
 import { readData } from '../utils/csvReader';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { FAB } from 'react-native-paper';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+
+// Configurar o comportamento das notificações
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function App() {
   const [data, setData] = useState<any[]>([]);
@@ -15,7 +25,9 @@ export default function App() {
     notificationsEnabled: true,
     radius: 500,
     notificationInterval: 'hourly',
-    minRiskPercentage: 30
+    minRiskPercentage: 30,
+    notificationType: 'both',
+    vibrationPattern: 'default'
   });
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -71,6 +83,18 @@ export default function App() {
     })();
   }, []);
 
+  // Solicitar permissão para notificações
+  useEffect(() => {
+    const requestPermissions = async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permissão para notificações negada');
+      }
+    };
+
+    requestPermissions();
+  }, []);
+
   // Usa useFocusEffect para recarregar as configurações quando a tela recebe foco
   useFocusEffect(
     useCallback(() => {
@@ -110,24 +134,102 @@ export default function App() {
 
   const getColorLegend = () => {
     const colors = [
-      { color: [121, 188, 106], label: '0-20% - Baixo Risco' },
-      { color: [187, 207, 76], label: '20-40% - Risco Moderado' },
-      { color: [238, 194, 11], label: '40-60% - Risco Médio' },
-      { color: [242, 147, 5], label: '60-80% - Risco Alto' },
-      { color: [229, 0, 0], label: '80-100% - Risco Muito Alto' }
+      { color: [121, 188, 106], label: '0-20%' },
+      { color: [187, 207, 76], label: '20-40%' },
+      { color: [238, 194, 11], label: '40-60%' },
+      { color: [242, 147, 5], label: '60-80%' },
+      { color: [229, 0, 0], label: '80-100%' }
     ];
 
     return (
-      <ScrollView horizontal style={styles.legendContainer}>
+      <View style={styles.legendContainer}>
         {colors.map((item, index) => (
           <View key={index} style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: `rgba(${item.color.join(',')}, 0.7)` }]} />
-            <Text style={styles.legendText}>{item.label}</Text>
+            <View style={styles.legendColorContainer}>
+              <View style={[styles.legendColor, { backgroundColor: `rgba(${item.color.join(',')}, 0.7)` }]} />
+              <Text style={styles.legendText}>{item.label}</Text>
+            </View>
           </View>
         ))}
-      </ScrollView>
+      </View>
     );
   };
+
+  const handleNotification = useCallback(async (weight: number) => {
+    if (!settings.notificationsEnabled) return;
+
+    // O peso já está em porcentagem (0-100)
+    const riskPercentage = weight;
+    
+    // Verificando se o risco está acima do percentual mínimo configurado
+    if (riskPercentage < settings.minRiskPercentage) return;
+
+    console.log('Risco detectado:', riskPercentage, '%');
+
+    // Lógica de notificação baseada nas configurações
+    if (settings.notificationType === 'notification' || settings.notificationType === 'both') {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Alerta de Risco',
+          body: `Risco detectado: ${Math.round(riskPercentage)}%`,
+          data: { riskPercentage },
+        },
+        trigger: null, // Notificação imediata
+      });
+      return true; // Retorna true para indicar que uma notificação foi enviada
+    }
+
+    if (settings.notificationType === 'vibration' || settings.notificationType === 'both') {
+      if (settings.vibrationPattern !== 'off') {
+        const patterns = {
+          short: [500, 300],
+          long: [500, 1300],
+          double: [500, 1200, 500, 200, 500, 1200]
+        };
+
+        Vibration.vibrate(patterns[settings.vibrationPattern as keyof typeof patterns]);
+      }
+      return true; // Retorna true para indicar que uma vibração foi enviada
+    }
+
+    return false;
+  }, [settings]);
+
+  const checkAndNotify = async () => {
+    if (userLocation) {
+      for (const item of data) {
+        const weight = item.heatmapIntensity || 0;
+        const notificationSent = await handleNotification(weight);
+        if (notificationSent) break; // Para após enviar a primeira notificação
+      }
+    }
+  };
+
+  // Função para verificar notificações periodicamente
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (settings.notificationsEnabled) {
+      const getIntervalMs = () => {
+        switch (settings.notificationInterval) {
+          case 'minute': return 60000; // 1 minuto
+          case 'hourly': return 3600000; // 1 hora
+          case 'daily': return 86400000; // 1 dia
+          default: return 3600000;
+        }
+      };
+
+      // Verifica imediatamente ao carregar
+      checkAndNotify();
+
+      // Configura o intervalo para verificações periódicas
+      interval = setInterval(checkAndNotify, getIntervalMs());
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [settings, userLocation, data, handleNotification]);
 
   return (
     <View style={styles.container}>
@@ -223,27 +325,31 @@ const styles = StyleSheet.create({
   },
   legendContainer: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 70,
     right: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    padding: 10,
+    padding: 2,
+    paddingVertical: 10,
     borderRadius: 8,
-    flexDirection: 'row',
+    flexDirection: 'column',
+    maxWidth: 200,
+    zIndex: 1,
   },
   legendItem: {
-    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  legendColorContainer: {
     alignItems: 'center',
-    marginRight: 15,
+    gap: 5,
   },
   legendColor: {
     width: 20,
     height: 20,
-    borderRadius: 10,
-    marginRight: 5,
+    borderRadius: 15,
   },
   legendText: {
     fontSize: 12,
     color: '#333',
+    textAlign: 'center',
   },
 }); 

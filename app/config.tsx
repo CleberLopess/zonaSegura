@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Vibration } from 'react-native';
 import { Text, Switch, SegmentedButtons, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function ConfigScreen() {
   const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationType, setNotificationType] = useState('both'); // 'notification', 'vibration', 'both'
+  const [vibrationPattern, setVibrationPattern] = useState('off'); // 'off', 'short', 'long', 'double'
   const [radius, setRadius] = useState(500);
   const [notificationInterval, setNotificationInterval] = useState('hourly');
   const [minRiskPercentage, setMinRiskPercentage] = useState(30);
@@ -27,6 +29,8 @@ export default function ConfigScreen() {
         if (savedSettings) {
           const settings = JSON.parse(savedSettings);
           setNotificationsEnabled(settings.notificationsEnabled);
+          setNotificationType(settings.notificationType || 'both');
+          setVibrationPattern(settings.vibrationPattern || 'off');
           setRadius(settings.radius);
           setNotificationInterval(settings.notificationInterval);
           setMinRiskPercentage(settings.minRiskPercentage);
@@ -46,6 +50,8 @@ export default function ConfigScreen() {
     try {
       const settings = {
         notificationsEnabled,
+        notificationType,
+        vibrationPattern,
         radius,
         notificationInterval,
         minRiskPercentage
@@ -60,13 +66,25 @@ export default function ConfigScreen() {
     }
   };
 
+  const testVibration = (pattern: string) => {
+    if (pattern === 'off') return;
+    
+    const patterns = {
+      short: [500, 300], // Vibração curta
+      long: [500, 1300], // Vibração longa
+      double: [500, 1200, 500, 200, 500, 1200] // Vibração forte
+    };
+
+    Vibration.vibrate(patterns[pattern as keyof typeof patterns]);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.section}>
         <Text style={styles.title}>Configurações de Notificação</Text>
         
         <View style={styles.row}>
-          <Text>Ativar Notificações</Text>
+          <Text>Ativar Alertas</Text>
           <Switch
             value={notificationsEnabled}
             onValueChange={setNotificationsEnabled}
@@ -75,6 +93,36 @@ export default function ConfigScreen() {
 
         {notificationsEnabled && (
           <>
+            <Text style={styles.subtitle}>Tipo de Alerta</Text>
+            <SegmentedButtons
+              value={notificationType}
+              onValueChange={setNotificationType}
+              buttons={[
+                { value: 'notification', label: 'Notificação' },
+                { value: 'vibration', label: 'Vibração' },
+                { value: 'both', label: 'Ambos' }
+              ]}
+            />
+
+            {(notificationType === 'vibration' || notificationType === 'both') && (
+              <>
+                <Text style={styles.subtitle}>Padrão de Vibração</Text>
+                <SegmentedButtons
+                  value={vibrationPattern}
+                  onValueChange={(value) => {
+                    setVibrationPattern(value);
+                    testVibration(value);
+                  }}
+                  buttons={[
+                    { value: 'off', label: 'Desligar' },
+                    { value: 'short', label: 'Curta' },
+                    { value: 'long', label: 'Longa' },
+                    { value: 'double', label: 'Forte' },
+                  ]}
+                />
+              </>
+            )}
+
             <Text style={styles.subtitle}>Raio de Alerta</Text>
             <SegmentedButtons
               value={radius.toString()}
