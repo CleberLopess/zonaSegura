@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Vibration } from 'react-native';
 import { Text, Switch, SegmentedButtons, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export default function ConfigScreen() {
   const router = useRouter();
+  const { settings, updateSettings } = useSettings();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [notificationType, setNotificationType] = useState('both'); // 'notification', 'vibration', 'both'
-  const [vibrationPattern, setVibrationPattern] = useState('off'); // 'off', 'short', 'long', 'double'
+  const [notificationType, setNotificationType] = useState<'notification' | 'vibration' | 'both'>('both');
+  const [vibrationPattern, setVibrationPattern] = useState<'off' | 'short' | 'long' | 'double'>('off');
   const [radius, setRadius] = useState(500);
-  const [notificationInterval, setNotificationInterval] = useState('hourly');
+  const [notificationInterval, setNotificationInterval] = useState<'minute' | 'hourly' | 'daily'>('hourly');
   const [minRiskPercentage, setMinRiskPercentage] = useState(30);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -23,32 +24,22 @@ export default function ConfigScreen() {
   ];
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const savedSettings = await AsyncStorage.getItem('settings');
-        if (savedSettings) {
-          const settings = JSON.parse(savedSettings);
-          setNotificationsEnabled(settings.notificationsEnabled);
-          setNotificationType(settings.notificationType || 'both');
-          setVibrationPattern(settings.vibrationPattern || 'off');
-          setRadius(settings.radius);
-          setNotificationInterval(settings.notificationInterval);
-          setMinRiskPercentage(settings.minRiskPercentage);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar configurações:', error);
-      }
-    };
-
-    loadSettings();
-  }, []);
+    if (settings) {
+      setNotificationsEnabled(settings.notificationsEnabled);
+      setNotificationType(settings.notificationType);
+      setVibrationPattern(settings.vibrationPattern);
+      setRadius(settings.radius);
+      setNotificationInterval(settings.notificationInterval);
+      setMinRiskPercentage(settings.minRiskPercentage);
+    }
+  }, [settings]);
 
   const saveSettings = async () => {
     if (isSaving) return;
     
     setIsSaving(true);
     try {
-      const settings = {
+      const newSettings = {
         notificationsEnabled,
         notificationType,
         vibrationPattern,
@@ -57,7 +48,7 @@ export default function ConfigScreen() {
         minRiskPercentage
       };
       
-      await AsyncStorage.setItem('settings', JSON.stringify(settings));
+      await updateSettings(newSettings);
       router.back();
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
@@ -96,7 +87,7 @@ export default function ConfigScreen() {
             <Text style={styles.subtitle}>Tipo de Alerta</Text>
             <SegmentedButtons
               value={notificationType}
-              onValueChange={setNotificationType}
+              onValueChange={(value) => setNotificationType(value as 'notification' | 'vibration' | 'both')}
               buttons={[
                 { value: 'notification', label: 'Notificação' },
                 { value: 'vibration', label: 'Vibração' },
@@ -110,7 +101,7 @@ export default function ConfigScreen() {
                 <SegmentedButtons
                   value={vibrationPattern}
                   onValueChange={(value) => {
-                    setVibrationPattern(value);
+                    setVibrationPattern(value as 'off' | 'short' | 'long' | 'double');
                     testVibration(value);
                   }}
                   buttons={[
@@ -146,7 +137,7 @@ export default function ConfigScreen() {
             <Text style={styles.subtitle}>Intervalo de Notificação</Text>
             <SegmentedButtons
               value={notificationInterval}
-              onValueChange={setNotificationInterval}
+              onValueChange={(value) => setNotificationInterval(value as 'minute' | 'hourly' | 'daily')}
               buttons={[
                 { value: 'minute', label: 'Minuto' },
                 { value: 'hourly', label: 'Hora' },

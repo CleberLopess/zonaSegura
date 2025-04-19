@@ -18,11 +18,31 @@ export interface CrimeData {
 const RESULT_PATH = "resultadoFinal.json";
 
 // Função para converter percentual em número
-const parsePercentual = (percentual: string | undefined): number => {
+export const parsePercentual = (percentual: string | number | undefined): number => {
   if (!percentual) return 0;
-  // Remove o % e substitui vírgula por ponto
-  const cleanValue = percentual.replace("%", "").replace(",", ".");
-  return parseFloat(cleanValue);
+  
+  // Se já for número, retorna direto
+  if (typeof percentual === 'number') return percentual;
+  
+  try {
+    // Remove o % e substitui vírgula por ponto
+    const cleanValue = percentual.toString()
+      .replace("%", "")
+      .replace(",", ".")
+      .trim();
+      
+    const parsedValue = parseFloat(cleanValue);
+    
+    if (isNaN(parsedValue)) {
+      console.warn(`Valor de percentual inválido: ${percentual}`);
+      return 0;
+    }
+    
+    return parsedValue;
+  } catch (error) {
+    console.error(`Erro ao converter percentual ${percentual}:`, error);
+    return 0;
+  }
 };
 
 // Função para normalizar os percentuais

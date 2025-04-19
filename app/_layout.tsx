@@ -1,13 +1,22 @@
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
+import { SplashScreen, Stack } from 'expo-router';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import { PaperProvider, MD3LightTheme as PaperDefaultTheme } from 'react-native-paper';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+export {
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary,
+} from 'expo-router';
+
+export const unstable_settings = {
+  // Ensure that reloading on `/modal` keeps a back button present.
+  initialRouteName: 'heatmap',
+};
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -17,15 +26,19 @@ const paperTheme = {
   colors: {
     ...PaperDefaultTheme.colors,
     primary: '#2196F3',
-    secondary: '#03DAC6',
   },
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    ...FontAwesome.font,
   });
+
+  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
 
   useEffect(() => {
     if (loaded) {
@@ -37,35 +50,41 @@ export default function RootLayout() {
     return null;
   }
 
+  return <RootLayoutNav />;
+}
+
+function RootLayoutNav() {
+  const colorScheme = useColorScheme();
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <PaperProvider theme={paperTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-          <Stack.Screen 
-            name="index" 
-            options={{ 
-              title: 'Zona Segura',
-              headerStyle: {
-                backgroundColor: paperTheme.colors.primary,
-              },
-              headerTintColor: '#fff',
-            }} 
-          />
-          <Stack.Screen 
-            name="config" 
-            options={{ 
-              title: 'Configurações',
-              headerStyle: {
-                backgroundColor: paperTheme.colors.primary,
-              },
-              headerTintColor: '#fff',
-            }} 
-          />
-        </Stack>
-        <StatusBar style="auto" />
-      </PaperProvider>
-    </ThemeProvider>
+    <SettingsProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <PaperProvider theme={paperTheme}>
+          <Stack>
+            <Stack.Screen 
+              name="heatmap" 
+              options={{ 
+                title: 'Zona Segura',
+                headerStyle: {
+                  backgroundColor: paperTheme.colors.primary,
+                },
+                headerTintColor: '#fff',
+              }} 
+            />
+            <Stack.Screen 
+              name="config" 
+              options={{ 
+                title: 'Configurações',
+                headerStyle: {
+                  backgroundColor: paperTheme.colors.primary,
+                },
+                headerTintColor: '#fff',
+              }} 
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </PaperProvider>
+      </ThemeProvider>
+    </SettingsProvider>
   );
 }
