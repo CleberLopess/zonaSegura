@@ -192,21 +192,6 @@ export default function App() {
     registerBackgroundTask();
   }, [settings.notificationInterval]);
 
-  // Monitorar mudanças no estado do app
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'background') {
-        console.log('App em segundo plano');
-      } else if (nextAppState === 'active') {
-        console.log('App em primeiro plano');
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
   const getColor = (weight: number) => {
     // Cores do mais seguro para o mais perigoso
     const colors = [
@@ -268,8 +253,6 @@ export default function App() {
     
     // Verificando se o risco está acima do percentual mínimo configurado
     if (riskPercentage < Math.max(1, settings.minRiskPercentage)) return;
-
-    console.log('Risco detectado:', riskPercentage, '%');
 
     // Lógica de notificação baseada nas configurações
     if (settings.notificationType === 'notification' || settings.notificationType === 'both') {

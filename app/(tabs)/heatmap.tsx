@@ -26,7 +26,6 @@ export default function HeatmapScreen() {
         
         // Carrega dados
         const data = await readData((progress) => {
-          console.log(`Progresso: ${(progress * 100).toFixed(2)}%`);
         });
         setCrimeData(data);
       } catch (error) {

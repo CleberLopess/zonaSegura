@@ -29,15 +29,11 @@ const parsePercentual = (percentual: string | undefined): number => {
 const normalizePercentuals = (data: any[]): any[] => {
   // Encontra o maior percentual
   const maxPercentual = Math.max(...data.map(item => parsePercentual(item.percentual) || 0));
-  
-  console.log(`Maior percentual encontrado: ${maxPercentual}%`);
 
   // Normaliza todos os percentuais baseado no maior valor
   return data.map(item => {
     const originalValue = parsePercentual(item.percentual);
     const normalizedValue = originalValue / maxPercentual;
-    
-    console.log(`Normalizando ${item.unidadeTerritorial}: ${originalValue}% -> ${(normalizedValue * 100).toFixed(2)}%`);
     
     return {
       ...item,
@@ -52,14 +48,11 @@ export const readData = async (
   onProgress?: (progress: number) => void
 ): Promise<CrimeData[]> => {
   try {
-    console.log("Iniciando processamento dos dados...");
 
     // Carrega o JSON de dados
-    console.log("Carregando dados do JSON...");
     const jsonData = require("../assets/data/dados_RJ.json");
 
     // Processa os dados
-    console.log("Processando dados...");
     const processedData = jsonData.map((item: any) => ({
       RISP: item.RISP,
       AISP: item.AISP,
@@ -73,15 +66,12 @@ export const readData = async (
     }));
 
     // Normaliza os percentuais
-    console.log("Normalizando percentuais...");
     const normalizedData = normalizePercentuals(processedData);
 
     // Salva o resultado processado
     if (FileSystem.documentDirectory) {
       const filePath = FileSystem.documentDirectory + RESULT_PATH;
-      console.log("Salvando resultado final em:", filePath);
       await FileSystem.writeAsStringAsync(filePath, JSON.stringify(normalizedData));
-      console.log("Arquivo salvo com sucesso!");
     }
 
     return normalizedData;

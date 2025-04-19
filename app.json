@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "zonaSegura",
+    "name": "Zona Segura",
     "slug": "zonaSegura",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,26 +8,34 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/7ca53f9a-8f50-4acb-88e0-cee2a60fd84d",
+      "enabled": false,
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ihd.zonaSegura"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/iconLabel.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.ihd.zonaSegura"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/iconLabel.png"
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/iconLabel.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -38,6 +46,16 @@
     "experiments": {
       "typedRoutes": true
     },
-    "assetBundlePatterns": ["**/*"]
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "7ca53f9a-8f50-4acb-88e0-cee2a60fd84d"
+      }
+    }
   }
 }
