@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint",
-    "build android": "npx eas build --profile development --platform android"
+    "build:android-dev": "npx eas build --platform android --profile development",
+    "build:android-prod": "npx eas build --platform android --profile production",
+    "build:android-prod-local": "npx eas build --platform android --profile production --local"
   },
   "jest": {
     "preset": "jest-expo"

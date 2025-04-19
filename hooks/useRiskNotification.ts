@@ -28,7 +28,6 @@ export const useRiskNotification = (crimeData: Point[]) => {
       const riskPoints = crimeData;
       
       if (!riskPoints || riskPoints.length === 0) {
-        console.log('Nenhum ponto de risco encontrado');
         return { isInRiskArea: false, riskPercentage: 0 };
       }
 
@@ -56,7 +55,6 @@ export const useRiskNotification = (crimeData: Point[]) => {
       );
 
       if (pointsInRadius.length === 0) {
-        console.log('Nenhum ponto de risco dentro do raio');
         return { isInRiskArea: false, riskPercentage: 0 };
       }
 
@@ -68,10 +66,6 @@ export const useRiskNotification = (crimeData: Point[]) => {
       }, 0);
 
       const riskPercentage = weightedSum / pointsInRadius.length;
-
-      console.log('Pontos de risco dentro do raio:', pointsInRadius);
-      console.log('Percentual de risco calculado:', riskPercentage);
-
       return {
         isInRiskArea: riskPercentage >= settings.minRiskPercentage,
         riskPercentage
@@ -107,16 +101,29 @@ export const useRiskNotification = (crimeData: Point[]) => {
 
     // Se não for forçado e ainda não passou o intervalo, não envia
     if (!forceSend && now - lastNotificationTime.current < interval) {
-      console.log('Aguardando intervalo para próxima notificação');
       return;
     }
 
     try {
       // Vibrar de acordo com as configurações
       if (settings.vibrationEnabled) {
-        await Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Warning
-        );
+        switch (settings.vibrationPattern) {
+          case 'short':
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            break;
+          case 'long':
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            break;
+          case 'double':
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            break;
+          case 'off':
+          default:
+            // Não vibra
+            break;
+        }
       }
 
       // Enviar notificação
@@ -136,7 +143,6 @@ export const useRiskNotification = (crimeData: Point[]) => {
       });
 
       lastNotificationTime.current = now;
-      console.log('Notificação enviada com sucesso');
     } catch (error) {
       console.error('Erro ao enviar notificação:', error);
     }
@@ -149,16 +155,8 @@ export const useRiskNotification = (crimeData: Point[]) => {
     const checkRisk = async () => {
       const newRiskStatus = await checkRiskArea(userLocation);
 
-      console.log('Verificando área de risco:', {
-        userLocation,
-        settings,
-        newRiskStatus,
-        isInRiskArea: isInRiskArea.current
-      });
-
       // Enviar notificação apenas quando entrar em uma área de risco
       if (newRiskStatus.isInRiskArea && !isInRiskArea.current) {
-        console.log('Enviando notificação de risco');
         sendNotification(newRiskStatus.riskPercentage, true); // Força envio ao entrar em área de risco
       }
 
@@ -175,16 +173,8 @@ export const useRiskNotification = (crimeData: Point[]) => {
     const checkRisk = async () => {
       const newRiskStatus = await checkRiskArea(userLocation);
 
-      console.log('Verificando área de risco após mudança de configurações:', {
-        userLocation,
-        settings,
-        newRiskStatus,
-        isInRiskArea: isInRiskArea.current
-      });
-
       // Se estiver em área de risco, envia notificação imediatamente
       if (newRiskStatus.isInRiskArea) {
-        console.log('Enviando notificação após mudança de configurações');
         sendNotification(newRiskStatus.riskPercentage, true); // Força envio após mudança de configurações
       }
 
